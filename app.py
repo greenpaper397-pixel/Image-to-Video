@@ -121,6 +121,8 @@ pipe = WanImageToVideoPipeline.from_pretrained(
 # =========================================================
 # LOAD LORA ADAPTERS
 # =========================================================
+
+# --- 1. High Noise Adapters (Transformer 1) ---
 pipe.load_lora_weights(
     "obsxrver/wan2.2-i2v-scat",
     weight_name="WAN2.2-I2V-HighNoise_scat-xxi-i2v.safetensors",
@@ -131,7 +133,31 @@ pipe.load_lora_weights(
     weight_name="Wan2.2-I2V-A14B-4steps-lora-rank64-Seko-V1/high_noise_model.safetensors",
     adapter_name="lightx2v"
 )
+pipe.load_lora_weights(
+    "logohok/new_lora",
+    weight_name="Wan2.220I2V20Orgasm20HIGH%2014B.safetensors",
+    adapter_name="orgasm_high"
+)
+pipe.load_lora_weights(
+    "logohok/new_lora",
+    weight_name="NSFW-22-H-e8.safetensors",
+    adapter_name="nsfw_h"
+)
+# NEW: POV Missionary (High Noise)
+pipe.load_lora_weights(
+    "logohok/new_lora",
+    weight_name="wan2.2_i2v_highnoise_pov_missionary_v1.0.safetensors",
+    adapter_name="pov_missionary"
+)
+# NEW: Chokefuk (Assuming High Noise / General)
+pipe.load_lora_weights(
+    "logohok/new_lora",
+    weight_name="chokefukfinal.safetensors",
+    adapter_name="chokefuk"
+)
 
+
+# --- 2. Low Noise Adapters (Transformer 2) ---
 pipe.load_lora_weights(
     "obsxrver/wan2.2-i2v-scat",
     weight_name="WAN2.2-I2V-LowNoise_scat-xxi-i2v.safetensors",
@@ -144,13 +170,50 @@ pipe.load_lora_weights(
     adapter_name="lightx2v_2",
     load_into_transformer_2=True
 )
+pipe.load_lora_weights(
+    "logohok/new_lora",
+    weight_name="pworship_low_noise.safetensors",
+    adapter_name="pworship",
+    load_into_transformer_2=True
+)
+# NEW: Throat V1 (Low Noise)
+pipe.load_lora_weights(
+    "logohok/new_lora",
+    weight_name="Wan22_Throat_V1_low_noise.safetensors",
+    adapter_name="throat_v1",
+    load_into_transformer_2=True
+)
 
+# =========================================================
+# SET ADAPTERS AND FUSE
+# =========================================================
 
-pipe.set_adapters([ "i2v_scat","lightx2v","i2v_scat_2","lightx2v_2"], adapter_weights=[0.95, 0.9, 0.95, 0.9])
-pipe.fuse_lora(adapter_names=["i2v_scat","lightx2v"], lora_scale=1., components=["transformer"])
-pipe.fuse_lora(adapter_names=["i2v_scat_2","lightx2v_2"], lora_scale=1., components=["transformer_2"])
+# List of all active adapters
+all_adapters = [
+    "i2v_scat", "lightx2v", "orgasm_high", "nsfw_h", "pov_missionary", "chokefuk", # High
+    "i2v_scat_2", "lightx2v_2", "pworship", "throat_v1"                           # Low
+]
+
+# Weights for each (0.8 for new ones, 0.9-0.95 for original base loras)
+all_weights = [0.95, 0.9, 0.8, 0.8, 0.8, 0.8, 0.95, 0.9, 0.8, 0.8]
+
+pipe.set_adapters(all_adapters, adapter_weights=all_weights)
+
+# Fuse into Transformer 1
+pipe.fuse_lora(
+    adapter_names=["i2v_scat", "lightx2v", "orgasm_high", "nsfw_h", "pov_missionary", "chokefuk"], 
+    lora_scale=1.0, 
+    components=["transformer"]
+)
+
+# Fuse into Transformer 2
+pipe.fuse_lora(
+    adapter_names=["i2v_scat_2", "lightx2v_2", "pworship", "throat_v1"], 
+    lora_scale=1.0, 
+    components=["transformer_2"]
+)
+
 pipe.unload_lora_weights()
-
 # =========================================================
 # QUANTIZATION & AOT OPTIMIZATION
 # =========================================================
@@ -391,3 +454,4 @@ def hf_upload(file_path, prompt, repo):
         print(f"failed to upload result: {e}")
 if __name__ == "__main__":
     demo.queue().launch(mcp_server=True, share=True)
+
